@@ -1,0 +1,47 @@
+name: EP2 Frontend - Build, Push, Deploy
+
+on:
+  push:
+    branches: ["deploy"]
+
+jobs:
+  build_push_deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      IMAGE_FRONT: ${{ secrets.DOCKERHUB_USERNAME }}/isy1101-frontend:latest
+      EC2_PATH: /home/ubuntu/ep2-frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & Push (Frontend)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE_FRONT }}
+
+      - name: Deploy en EC2 (pull + up -d)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_FRONT_HOST }}
+          username: ${{ secrets.EC2_FRONT_USER }}
+          key: ${{ secrets.EC2_FRONT_SSH_KEY }}
+          script: |
+            set -e
+            cd ${{ env.EC2_PATH }}
+            docker compose pull
+            docker compose up -d
+            docker image prune -f
+
